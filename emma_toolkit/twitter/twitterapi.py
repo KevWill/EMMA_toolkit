@@ -45,15 +45,6 @@ class Twitter():
         user_ids = r.json()
         return user_ids
 
-    def get_friends(self, user, cursor = -1, count = 5000):
-        url = self.base_url + '/friends/ids.json'
-        params = {'cursor': cursor,
-                  'screen_name': user,
-                  'count': count}
-        r = self._request(url, params)
-        user_ids = r.json()
-        return user_ids
-
     def get_user_info(self, users):
         url = self.base_url + '/users/lookup.json'
         if isinstance(users, list):
