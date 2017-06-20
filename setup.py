@@ -1,6 +1,6 @@
 from distutils.core import setup
 
-setup(name='EMMA Toolkit',
+setup(name='emma_toolkit',
       version='1.0',
       description='EMMA toolkit',
       author='Kevin Willemsen',
