@@ -1,4 +1,5 @@
 from distutils.core import setup
+from setuptools import find_packages
 
 setup(name='emma_toolkit',
       version='1.0',
@@ -11,6 +12,6 @@ setup(name='emma_toolkit',
                    'Programming Language :: Python :: 3.5',],
       url = 'https://github.com/KevWill/EMMA_toolkit',
       download_url = 'https://github.com/KevWill/EMMA_toolkit',
-      packages = ['emma_toolkit'],
+      packages = find_packages(),
       keywords = ['EMMA_toolkit'],
      )
