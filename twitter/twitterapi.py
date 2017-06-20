@@ -45,6 +45,15 @@ class Twitter():
         user_ids = r.json()
         return user_ids
 
+    def get_friends(self, user, cursor = -1, count = 5000):
+        url = self.base_url + '/friends/ids.json'
+        params = {'cursor': cursor,
+                  'screen_name': user,
+                  'count': count}
+        r = self._request(url, params)
+        user_ids = r.json()
+        return user_ids
+
     def get_user_info(self, users):
         url = self.base_url + '/users/lookup.json'
         if isinstance(users, list):
@@ -63,6 +72,22 @@ class Twitter():
             raise TypeError("Users should be list, string or int, not {}.".format(str(type(users))))
 
         r = self._request(url, params, method).json()
+        return r
+
+    def get_recent_tweets(self, user, count = 200, include_rts = True):
+        url = self.base_url + '/statuses/user_timeline.json'
+        if isinstance(user, str):
+            params = {'screen_name': user}
+        elif isinstance(user, int):
+            params = {'user_id': user}
+        else:
+            raise TypeError("User should be string or int, not {}.".format(str(type(user))))
+        if include_rts:
+            params['include_rts'] = 1
+        else:
+            params['include_rts'] = 0
+        params['count'] = count
+        r = self._request(url, params).json()
         return r
 
     def follow_user(self, user):
