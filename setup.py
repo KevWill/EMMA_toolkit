@@ -11,6 +11,6 @@ setup(name='EMMA Toolkit',
                    'Programming Language :: Python :: 3.5',],
       url = 'https://github.com/KevWill/EMMA_toolkit',
       download_url = 'https://github.com/KevWill/EMMA_toolkit',
-      packages = ['EMMA_toolkit'],
+      packages = ['emma_toolkit'],
       keywords = ['EMMA_toolkit'],
      )
