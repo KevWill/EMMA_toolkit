@@ -2,6 +2,7 @@ import requests
 from requests_oauthlib import OAuth1
 import math
 import time
+import re
 
 class Twitter():
 
@@ -31,15 +32,10 @@ class Twitter():
                 'followed': friendship['relationship']['source']['followed_by']}
 
     def get_followers(self, user, cursor = -1, count = 5000, iterate = True):
-        def wait():
-            rate_limit_reset = self.rate_limits['/followers/ids']['reset']
-            now = time.clock()
-            time.sleep(rate_limit_reset - now)
         if '/followers/ids' not in self.rate_limits:
             self.rate_limits['/followers/ids'] = self.get_rate_limit('followers')['followers']['/followers/ids']
-        rate_limit = self.rate_limits['/followers/ids']['remaining']
-        if rate_limit == 0:
-            wait()
+        if self.rate_limits['/followers/ids']['remaining'] == 0:
+            self._wait('/followers/ids')
         follower_ids = []
         url = self.base_url + '/followers/ids.json'
         params = {'cursor': cursor,
@@ -49,9 +45,9 @@ class Twitter():
         user_ids = r.json()
         follower_ids += user_ids['ids']
         self.rate_limits['/followers/ids']['remaining'] -= 1
-        while 'next_cursor' in user_ids and iterate:
-            if rate_limit == 0:
-                wait()
+        while 'next_cursor' in user_ids and user_ids['next_cursor'] != 0 and iterate:
+            if self.rate_limits['/followers/ids']['remaining'] == 0:
+                self._wait('/followers/ids')
             params['cursor'] = user_ids['next_cursor']
             r = self._request(url, params)
             user_ids = r.json()
@@ -60,15 +56,10 @@ class Twitter():
         return follower_ids
 
     def get_friends(self, user, cursor = -1, count = 5000, iterate = True):
-        def wait():
-            rate_limit_reset = self.rate_limits['/friends/ids']['reset']
-            now = time.clock()
-            time.sleep(rate_limit_reset - now)
         if '/friends/ids' not in self.rate_limits:
             self.rate_limits['/friends/ids'] = self.get_rate_limit('friends')['friends']['/friends/ids']
-        rate_limit = self.rate_limits['/friends/ids']['remaining']
-        if rate_limit == 0:
-            wait()
+        if self.rate_limits['/friends/ids']['remaining'] == 0:
+            self._wait('/friends/ids')
         friend_ids = []
         url = self.base_url + '/friends/ids.json'
         params = {'cursor': cursor,
@@ -79,8 +70,8 @@ class Twitter():
         friend_ids += user_ids['ids']
         self.rate_limits['/friends/ids']['remaining'] -= 1
         while 'next_cursor' in user_ids and iterate:
-            if rate_limit == 0:
-                wait()
+            if self.rate_limits['/friends/ids']['remaining'] == 0:
+                self._wait('/friends/ids')
             params['cursor'] = user_ids['next_cursor']
             r = self._request(url, params)
             user_ids = r.json()
@@ -89,24 +80,40 @@ class Twitter():
         return friend_ids
 
     def get_user_info(self, users):
+        if '/users/lookup' not in self.rate_limits:
+            self.rate_limits['/users/lookup'] = self.get_rate_limit('users')['users']['/users/lookup']
+        if self.rate_limits['/users/lookup']['remaining'] == 0:
+            self._wait('/users/lookup')
         url = self.base_url + '/users/lookup.json'
+        user_info = []
         if isinstance(users, list):
             method = 'POST'
-            if isinstance(users[0], int):
-                params = {'user_id': ','.join([str(user) for user in users])}
+            if len(users) > 100:
+                chunks = self.create_chunks(users, 100)
             else:
-                params = {'screen_name': ','.join(users)}
+                chunks = users
+            for chunk in chunks:
+                if self.rate_limits['/users/lookup']['remaining'] == 0:
+                    self._wait('/users/lookup')
+                if isinstance(users[0], int):
+                    params = {'user_id': ','.join([str(user) for user in chunk])}
+                else:
+                    params = {'screen_name': ','.join(chunk)}
+                r = self._request(url, params, method).json()
+                user_info += r
         elif isinstance(users, str):
             method = 'GET'
             params = {'screen_name': users}
+            r = self._request(url, params, method).json()
+            user_info += r
         elif isinstance(users, int):
             method = 'GET'
             params = {'user_id': users}
+            r = self._request(url, params, method).json()
+            user_info += r
         else:
             raise TypeError("Users should be list, string or int, not {}.".format(str(type(users))))
-
-        r = self._request(url, params, method).json()
-        return r
+        return user_info
 
     def get_recent_tweets(self, user, count = 200, include_rts = True):
         url = self.base_url + '/statuses/user_timeline.json'
@@ -165,3 +172,10 @@ class Twitter():
         else:
             raise TypeError("'Method' should be either POST or GET.")
         return r
+
+    def _wait(self, resource):
+        rate_limit_reset = self.rate_limits[resource]['reset']
+        now = time.time()
+        time.sleep(rate_limit_reset - now)
+        main_resource = re.findall(r'/(\w+)/', resource)[0]
+        self.rate_limits[resource] = self.get_rate_limit(main_resource)[main_resource][resource]
