@@ -49,7 +49,7 @@ class Twitter():
         user_ids = r.json()
         follower_ids += user_ids['ids']
         self.rate_limits['/followers/ids']['remaining'] -= 1
-        while 'next_cursor' in user_ids:
+        while 'next_cursor' in user_ids and iterate:
             if rate_limit == 0:
                 wait()
             params['cursor'] = user_ids['next_cursor']
@@ -59,14 +59,34 @@ class Twitter():
             self.rate_limits['/followers/ids']['remaining'] -= 1
         return follower_ids
 
-    def get_friends(self, user, cursor = -1, count = 5000):
+    def get_friends(self, user, cursor = -1, count = 5000, iterate = True):
+        def wait():
+            rate_limit_reset = self.rate_limits['/friends/ids']['remaining']['reset']
+            now = time.clock()
+            time.sleep(rate_limit_reset - now)
+        if '/friends/ids' not in self.rate_limits:
+            self.rate_limits['/friends/ids'] = self.get_rate_limit('friends')['friends']['/friends/ids']
+        rate_limit = self.rate_limits['/friends/ids']['remaining']
+        if rate_limit == 0:
+            wait()
+        friend_ids = []
         url = self.base_url + '/friends/ids.json'
         params = {'cursor': cursor,
                   'screen_name': user,
                   'count': count}
         r = self._request(url, params)
         user_ids = r.json()
-        return user_ids
+        friend_ids += user_ids['ids']
+        self.rate_limits['/friends/ids']['remaining'] -= 1
+        while 'next_cursor' in user_ids and iterate:
+            if rate_limit == 0:
+                wait()
+            params['cursor'] = user_ids['next_cursor']
+            r = self._request(url, params)
+            user_ids = r.json()
+            friend_ids += user_ids['ids']
+            self.rate_limits['/friends/ids']['remaining'] -= 1
+        return friend_ids
 
     def get_user_info(self, users):
         url = self.base_url + '/users/lookup.json'
