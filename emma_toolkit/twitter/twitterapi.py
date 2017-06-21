@@ -32,7 +32,7 @@ class Twitter():
 
     def get_followers(self, user, cursor = -1, count = 5000, iterate = True):
         def wait():
-            rate_limit_reset = self.rate_limits['/followers/ids']['remaining']['reset']
+            rate_limit_reset = self.rate_limits['/followers/ids']['reset']
             now = time.clock()
             time.sleep(rate_limit_reset - now)
         if '/followers/ids' not in self.rate_limits:
@@ -61,7 +61,7 @@ class Twitter():
 
     def get_friends(self, user, cursor = -1, count = 5000, iterate = True):
         def wait():
-            rate_limit_reset = self.rate_limits['/friends/ids']['remaining']['reset']
+            rate_limit_reset = self.rate_limits['/friends/ids']['reset']
             now = time.clock()
             time.sleep(rate_limit_reset - now)
         if '/friends/ids' not in self.rate_limits:
