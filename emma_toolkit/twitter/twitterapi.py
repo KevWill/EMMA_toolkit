@@ -1,5 +1,7 @@
 import requests
 from requests_oauthlib import OAuth1
+import math
+import time
 
 class Twitter():
 
@@ -14,6 +16,7 @@ class Twitter():
                        config['access_secret']
                        )
         self.base_url = 'https://api.twitter.com/1.1'
+        self.rate_limits = {}
 
     def set_auth(self, consumer_key, consumer_secret, access_token, acces_secret):
         self.oauth = OAuth1(consumer_key, consumer_secret, access_token, acces_secret)
@@ -27,14 +30,34 @@ class Twitter():
         return {'following': friendship['relationship']['source']['following'],
                 'followed': friendship['relationship']['source']['followed_by']}
 
-    def get_followers(self, user, cursor = -1, count = 5000):
+    def get_followers(self, user, cursor = -1, count = 5000, iterate = True):
+        def wait():
+            rate_limit_reset = self.rate_limits['/followers/ids']['remaining']['reset']
+            now = time.clock()
+            time.sleep(rate_limit_reset - now)
+        if '/followers/ids' not in self.rate_limits:
+            self.rate_limits['/followers/ids'] = self.get_rate_limit('followers')['followers']['/followers/ids']
+        rate_limit = self.rate_limits['/followers/ids']['remaining']
+        if rate_limit == 0:
+            wait()
+        follower_ids = []
         url = self.base_url + '/followers/ids.json'
         params = {'cursor': cursor,
                   'screen_name': user,
                   'count': count}
         r = self._request(url, params)
         user_ids = r.json()
-        return user_ids
+        follower_ids += user_ids['ids']
+        self.rate_limits['/followers/ids']['remaining'] -= 1
+        while 'next_cursor' in user_ids:
+            if rate_limit == 0:
+                wait()
+            params['cursor'] = user_ids['next_cursor']
+            r = self._request(url, params)
+            user_ids = r.json()
+            follower_ids += user_ids['ids']
+            self.rate_limits['/followers/ids']['remaining'] -= 1
+        return follower_ids
 
     def get_friends(self, user, cursor = -1, count = 5000):
         url = self.base_url + '/friends/ids.json'
