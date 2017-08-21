@@ -36,7 +36,7 @@ class Twitter():
             self.rate_limits['/followers/ids'] = self.get_rate_limit('followers')['followers']['/followers/ids']
         if self.rate_limits['/followers/ids']['remaining'] == 0:
             if verbose:
-                print('Rate limit! We wachten 15 minuten. We zijn bij {} van de {} accounts.'.format())
+                print('Rate limit (/followers/ids)! We wachten 15 minuten.')
             self._wait('/followers/ids')
         follower_ids = []
         url = self.base_url + '/followers/ids.json'
@@ -57,10 +57,12 @@ class Twitter():
             self.rate_limits['/followers/ids']['remaining'] -= 1
         return follower_ids
 
-    def get_friends(self, user, cursor = -1, count = 5000, iterate = True):
+    def get_friends(self, user, cursor = -1, count = 5000, iterate = True, verbose = False):
         if '/friends/ids' not in self.rate_limits:
             self.rate_limits['/friends/ids'] = self.get_rate_limit('friends')['friends']['/friends/ids']
         if self.rate_limits['/friends/ids']['remaining'] == 0:
+            if verbose:
+                print('Rate limit (/friends/ids)! We wachten 15 minuten.')
             self._wait('/friends/ids')
         friend_ids = []
         url = self.base_url + '/friends/ids.json'
@@ -81,10 +83,12 @@ class Twitter():
             self.rate_limits['/friends/ids']['remaining'] -= 1
         return friend_ids
 
-    def get_user_info(self, users):
+    def get_user_info(self, users, verbose = False):
         if '/users/lookup' not in self.rate_limits:
             self.rate_limits['/users/lookup'] = self.get_rate_limit('users')['users']['/users/lookup']
         if self.rate_limits['/users/lookup']['remaining'] == 0:
+            if verbose:
+                print('Rate limit (/users/lookup)! We wachten 15 minuten.')
             self._wait('/users/lookup')
         url = self.base_url + '/users/lookup.json'
         user_info = []
