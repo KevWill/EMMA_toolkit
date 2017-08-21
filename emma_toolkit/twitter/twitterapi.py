@@ -31,10 +31,12 @@ class Twitter():
         return {'following': friendship['relationship']['source']['following'],
                 'followed': friendship['relationship']['source']['followed_by']}
 
-    def get_followers(self, user, cursor = -1, count = 5000, iterate = True):
+    def get_followers(self, user, cursor = -1, count = 5000, iterate = True, verbose = False):
         if '/followers/ids' not in self.rate_limits:
             self.rate_limits['/followers/ids'] = self.get_rate_limit('followers')['followers']['/followers/ids']
         if self.rate_limits['/followers/ids']['remaining'] == 0:
+            if verbose:
+                print('Rate limit! We wachten 15 minuten. We zijn bij {} van de {} accounts.'.format())
             self._wait('/followers/ids')
         follower_ids = []
         url = self.base_url + '/followers/ids.json'
@@ -89,7 +91,7 @@ class Twitter():
         if isinstance(users, list):
             method = 'POST'
             if len(users) > 100:
-                chunks = self.create_chunks(users, 100)
+                chunks = self._create_chunks(users, 100)
             else:
                 chunks = users
             for chunk in chunks:
@@ -155,7 +157,7 @@ class Twitter():
         r = self._request(url, params).json()
         return r['resources']
 
-    def create_chunks(self, l, n):
+    def _create_chunks(self, l, n):
         """
         :param l: array
         :param n: size of every chunk
