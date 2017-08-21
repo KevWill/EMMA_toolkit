@@ -35,9 +35,7 @@ class Twitter():
         if '/followers/ids' not in self.rate_limits:
             self.rate_limits['/followers/ids'] = self.get_rate_limit('followers')['followers']['/followers/ids']
         if self.rate_limits['/followers/ids']['remaining'] == 0:
-            if verbose:
-                print('Rate limit (/followers/ids)! We wachten 15 minuten.')
-            self._wait('/followers/ids')
+            self._wait('/followers/ids', verbose)
         follower_ids = []
         url = self.base_url + '/followers/ids.json'
         params = {'cursor': cursor,
@@ -61,9 +59,7 @@ class Twitter():
         if '/friends/ids' not in self.rate_limits:
             self.rate_limits['/friends/ids'] = self.get_rate_limit('friends')['friends']['/friends/ids']
         if self.rate_limits['/friends/ids']['remaining'] == 0:
-            if verbose:
-                print('Rate limit (/friends/ids)! We wachten 15 minuten.')
-            self._wait('/friends/ids')
+            self._wait('/friends/ids', verbose)
         friend_ids = []
         url = self.base_url + '/friends/ids.json'
         params = {'cursor': cursor,
@@ -75,7 +71,7 @@ class Twitter():
         self.rate_limits['/friends/ids']['remaining'] -= 1
         while 'next_cursor' in user_ids and iterate:
             if self.rate_limits['/friends/ids']['remaining'] == 0:
-                self._wait('/friends/ids')
+                self._wait('/friends/ids', verbose)
             params['cursor'] = user_ids['next_cursor']
             r = self._request(url, params)
             user_ids = r.json()
@@ -87,9 +83,7 @@ class Twitter():
         if '/users/lookup' not in self.rate_limits:
             self.rate_limits['/users/lookup'] = self.get_rate_limit('users')['users']['/users/lookup']
         if self.rate_limits['/users/lookup']['remaining'] == 0:
-            if verbose:
-                print('Rate limit (/users/lookup)! We wachten 15 minuten.')
-            self._wait('/users/lookup')
+            self._wait('/users/lookup', verbose)
         url = self.base_url + '/users/lookup.json'
         user_info = []
         if isinstance(users, list):
@@ -100,7 +94,7 @@ class Twitter():
                 chunks = users
             for chunk in chunks:
                 if self.rate_limits['/users/lookup']['remaining'] == 0:
-                    self._wait('/users/lookup')
+                    self._wait('/users/lookup', verbose)
                 if isinstance(users[0], int):
                     params = {'user_id': ','.join([str(user) for user in chunk])}
                 else:
@@ -179,7 +173,9 @@ class Twitter():
             raise TypeError("'Method' should be either POST or GET.")
         return r
 
-    def _wait(self, resource):
+    def _wait(self, resource, verbose = False):
+        if verbose:
+            print('Rate limit {}! We wachten 15 minuten.'.format(resource))
         rate_limit_reset = self.rate_limits[resource]['reset']
         now = time.time()
         time.sleep(rate_limit_reset - now)
