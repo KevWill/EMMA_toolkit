@@ -69,7 +69,7 @@ class Twitter():
         user_ids = r.json()
         friend_ids += user_ids['ids']
         self.rate_limits['/friends/ids']['remaining'] -= 1
-        while 'next_cursor' in user_ids and iterate:
+        while 'next_cursor' in user_ids and user_ids['next_cursor'] != 0 and iterate:
             if self.rate_limits['/friends/ids']['remaining'] == 0:
                 self._wait('/friends/ids', verbose)
             params['cursor'] = user_ids['next_cursor']
@@ -91,7 +91,7 @@ class Twitter():
             if len(users) > 100:
                 chunks = self._create_chunks(users, 100)
             else:
-                chunks = users
+                chunks = [users]
             for chunk in chunks:
                 if self.rate_limits['/users/lookup']['remaining'] == 0:
                     self._wait('/users/lookup', verbose)
@@ -143,6 +143,23 @@ class Twitter():
         r = self._request(url, params, method="POST").json()
         return r
 
+    def search_users(self, query, users_to_return=20, verbose=False):
+        if '/users/search' not in self.rate_limits:
+            self.rate_limits['/users/search'] = self.get_rate_limit('users')['users']['/users/search']
+        if self.rate_limits['/users/search']['remaining'] == 0:
+            self._wait('/users/search', verbose)
+        url = self.base_url + '/users/search.json'
+        user_info = []
+        params = {'q': query,
+                  'count': 20,
+                  'page': 1}
+        iterations = math.ceil(users_to_return / 20)
+        for i in range(iterations):
+            r = self._request(url, params, method="GET").json()
+            user_info += r
+            self.rate_limits['/users/search']['remaining'] -= 1
+        return user_info
+
     def get_rate_limit(self, resources):
         url = self.base_url + '/application/rate_limit_status.json'
         if isinstance(resources, list):
@@ -174,10 +191,11 @@ class Twitter():
         return r
 
     def _wait(self, resource, verbose = False):
-        if verbose:
-            print('Rate limit {}! We wachten 15 minuten.'.format(resource))
         rate_limit_reset = self.rate_limits[resource]['reset']
         now = time.time()
+        if verbose:
+            print('Rate limit {}! We wachten 15 minuten. Tijd: {}'.format(resource, time.strftime('%H:%M:%S')))
         time.sleep(rate_limit_reset - now)
         main_resource = re.findall(r'/(\w+)/', resource)[0]
-        self.rate_limits[resource] = self.get_rate_limit(main_resource)[main_resource][resource]
+        new_rate_limit = self.get_rate_limit(main_resource)[main_resource][resource]
+        self.rate_limits[resource] = new_rate_limit
