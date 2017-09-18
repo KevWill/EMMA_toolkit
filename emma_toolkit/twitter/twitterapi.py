@@ -153,8 +153,11 @@ class Twitter():
         params = {'q': query,
                   'count': 20,
                   'page': 1}
-        iterations = math.ceil(users_to_return / 20)
+        iterations = int(math.ceil(users_to_return / 20))
         for i in range(iterations):
+            if self.rate_limits['/users/search']['remaining'] == 0:
+                self._wait('/users/search', verbose)
+            params['page'] += 1
             r = self._request(url, params, method="GET").json()
             user_info += r
             self.rate_limits['/users/search']['remaining'] -= 1
