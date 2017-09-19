@@ -149,9 +149,10 @@ class Twitter():
         if self.rate_limits['/users/search']['remaining'] == 0:
             self._wait('/users/search', verbose)
         url = self.base_url + '/users/search.json'
+        count = 20
         user_info = []
         params = {'q': query,
-                  'count': 20,
+                  'count': count,
                   'page': 1}
         iterations = int(math.ceil(users_to_return / 20))
         for i in range(iterations):
@@ -161,6 +162,8 @@ class Twitter():
             r = self._request(url, params, method="GET").json()
             user_info += r
             self.rate_limits['/users/search']['remaining'] -= 1
+            if len(r) < count:
+                break
         return user_info
 
     def get_rate_limit(self, resources):
