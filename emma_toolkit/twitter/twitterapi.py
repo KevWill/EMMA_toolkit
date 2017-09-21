@@ -4,6 +4,7 @@ import math
 import time
 import re
 import datetime
+import warnings
 
 class Twitter():
 
@@ -141,6 +142,9 @@ class Twitter():
             if self.rate_limits['/statuses/user_timeline']['remaining'] == 0:
                 self._wait('/statuses/user_timeline', verbose)
             r = self._request(url, params).json()
+            if 'error' in r and 'Not authorized' in r['error']:
+                warnings.warn("Not authorized to view user {}'s timeline, returning nothing.".format(user))
+                return []
             all_tweets += r
             params['max_id'] = r[-1]['id']
             last_date = r[-1]['created_at']
