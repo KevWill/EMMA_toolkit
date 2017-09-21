@@ -3,6 +3,7 @@ from requests_oauthlib import OAuth1
 import math
 import time
 import re
+import datetime
 
 class Twitter():
 
@@ -115,7 +116,11 @@ class Twitter():
             raise TypeError("Users should be list, string or int, not {}.".format(str(type(users))))
         return user_info
 
-    def get_recent_tweets(self, user, count = 200, include_rts = True):
+    def get_recent_tweets(self, user, count = 3200, start_date = None, include_rts = True, verbose=False):
+        if '/statuses/user_timeline' not in self.rate_limits:
+            self.rate_limits['/statuses/user_timeline'] = self.get_rate_limit('statuses')['statuses']['/statuses/user_timeline']
+        if self.rate_limits['/statuses/user_timeline']['remaining'] == 0:
+            self._wait('/statuses/user_timeline', verbose)
         url = self.base_url + '/statuses/user_timeline.json'
         if isinstance(user, str):
             params = {'screen_name': user}
@@ -127,9 +132,28 @@ class Twitter():
             params['include_rts'] = 1
         else:
             params['include_rts'] = 0
-        params['count'] = count
-        r = self._request(url, params).json()
-        return r
+        params['count'] = 200 if count >= 200 else count
+        iterations = int(math.ceil(count / 200))
+        start_timestamp = datetime.datetime.timestamp(start_date)
+        all_tweets = []
+        date_format = '%a %b %d %H:%M:%S %z %Y'
+        for i in range(iterations):
+            if self.rate_limits['/statuses/user_timeline']['remaining'] == 0:
+                self._wait('/statuses/user_timeline', verbose)
+            r = self._request(url, params).json()
+            all_tweets += r
+            params['max_id'] = r[-1]['id']
+            last_date = r[-1]['created_at']
+            last_timestamp = datetime.datetime.timestamp(datetime.datetime.strptime(last_date, date_format))
+            self.rate_limits['/statuses/user_timeline']['remaining'] -= 1
+            if last_timestamp < start_timestamp:
+                break
+        tweets = []
+        for tweet in all_tweets:
+            timestamp = datetime.datetime.timestamp(datetime.datetime.strptime(tweet['created_at'], date_format))
+            if timestamp > start_timestamp:
+                tweets.append(tweet)
+        return tweets
 
     def follow_user(self, user):
         url = self.base_url + '/friendships/create.json'
