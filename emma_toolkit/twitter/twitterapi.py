@@ -4,7 +4,6 @@ import math
 import time
 import re
 import datetime
-import warnings
 
 class Twitter():
 
@@ -149,7 +148,12 @@ class Twitter():
             else:
                 error = None
             if error:
-                warnings.warn("Error for user {}: '{}'. Returning nothing.".format(user, error))
+                if verbose:
+                    print("Error for user {}: '{}'. Returning nothing.".format(user, error))
+                return []
+            if len(r) == 0:
+                if verbose:
+                    print("No tweets for user {}. Returning nothing.".format(user))
                 return []
             all_tweets += r
             params['max_id'] = r[-1]['id'] - 1
