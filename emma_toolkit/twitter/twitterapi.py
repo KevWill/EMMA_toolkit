@@ -142,15 +142,21 @@ class Twitter():
             if self.rate_limits['/statuses/user_timeline']['remaining'] == 0:
                 self._wait('/statuses/user_timeline', verbose)
             r = self._request(url, params).json()
-            if 'error' in r and 'Not authorized' in r['error']:
-                warnings.warn("Not authorized to view user {}'s timeline, returning nothing.".format(user))
+            if 'error' in r:
+                error = r['error']
+            elif 'errors' in r:
+                error = r['errors'][0]['message']
+            else:
+                error = None
+            if error:
+                warnings.warn("Error for user {}: '{}'. Returning nothing.".format(user, error))
                 return []
             all_tweets += r
-            params['max_id'] = r[-1]['id']
+            params['max_id'] = r[-1]['id'] - 1
             last_date = r[-1]['created_at']
             last_timestamp = datetime.datetime.timestamp(datetime.datetime.strptime(last_date, date_format))
             self.rate_limits['/statuses/user_timeline']['remaining'] -= 1
-            if last_timestamp < start_timestamp:
+            if last_timestamp < start_timestamp or len(r) < params['count']:
                 break
         tweets = []
         for tweet in all_tweets:
