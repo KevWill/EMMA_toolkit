@@ -38,7 +38,32 @@ class Facebook():
             comments = []
         return comments
 
-    def get_id_from_url(self, url):
+    def get_user_id_from_url(self, url):
+        parsed_url = parse.urlparse(url)
+        path = parsed_url.path
+        query = parsed_url.query
+        try:
+            if 'post' in path:
+                user_id = re.findall(r'/(.+?)/posts/\d+', path)[0]
+                try:
+                    int(user_id)
+                except ValueError:
+                    user_id = ''
+            elif 'video' in path:
+                user_id = re.findall(r'/(.+?)/videos/\d+', path)[0]
+            elif 'photo' in path:
+                user_id = re.findall(r'v=(\d+)|fbid=\d+', query)[0]
+            elif 'permalink' in path:
+                user_id = re.findall(r'story_fbid=(\d+)&', query)[0]
+            elif 'events' in path:
+                user_id = re.findall(r'events/(\d+)', path)[0]
+            else:
+                raise ValueError('URL nog niet in systeem: {}'.format(url))
+        except IndexError:
+            raise IndexError('URL nog niet in systeem: {}'.format(url))
+        return user_id
+
+    def get_post_id_from_url(self, url):
         parsed_url = parse.urlparse(url)
         path = parsed_url.path
         query = parsed_url.query
