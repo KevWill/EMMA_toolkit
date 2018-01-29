@@ -50,7 +50,9 @@ class Facebook():
         try:
             if 'post' in path:
                 user_id = re.findall(r'/(.+?)/posts/\d+', path)[0]
-                if type(user_id) == str:
+                try:
+                    int(user_id)
+                except ValueError:
                     user_id = self._get_id_from_username(user_id)
             elif 'video' in path:
                 user_id = re.findall(r'/(.+?)/videos/\d+', path)[0]
