@@ -29,6 +29,11 @@ class Facebook():
             raise TypeError("'Method' should be either POST or GET.")
         return r
 
+    def _get_id_from_username(self, username):
+        html = requests.get('https://facebook.com/' + username).text
+        id = re.findall(r'fbpage_id=(\d+)', html)[0]
+        return id
+
     def get_object_comments(self, object_id):
         url = self.base_url + object_id + '/comments'
         r = self._request(url).json()
@@ -45,14 +50,13 @@ class Facebook():
         try:
             if 'post' in path:
                 user_id = re.findall(r'/(.+?)/posts/\d+', path)[0]
-                try:
-                    int(user_id)
-                except ValueError:
-                    user_id = ''
+                if type(user_id) == str:
+                    user_id = self._get_id_from_username(user_id)
             elif 'video' in path:
                 user_id = re.findall(r'/(.+?)/videos/\d+', path)[0]
             elif 'photo' in path:
-                user_id = re.findall(r'v=(\d+)|fbid=\d+', query)[0]
+                result = re.findall(r'v=(\d+)|fbid=(\d+)', query)[0]
+                user_id = result[0] if result[0] else result[1]
             elif 'permalink' in path:
                 user_id = re.findall(r'story_fbid=(\d+)&', query)[0]
             elif 'events' in path:
