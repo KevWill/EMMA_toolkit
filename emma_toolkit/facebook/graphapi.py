@@ -100,3 +100,8 @@ class Facebook():
         except IndexError:
             raise IndexError('URL nog niet in systeem: {}'.format(url))
         return post_id
+
+    def get_user_info(self, user_id):
+        url = self.base_url + user_id
+        r = self._request(url, params = {'metadata': 1}).json()
+        return r
