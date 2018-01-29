@@ -38,13 +38,17 @@ class Facebook():
             id = ''
         return id
 
-    def get_object_comments(self, object_id):
+    def get_object_comments(self, object_id, user_info = False):
         url = self.base_url + object_id + '/comments'
         r = self._request(url).json()
         if 'data' in r:
             comments = r['data']
         else:
             comments = []
+        if user_info:
+            for c in comments:
+                user_info = self.get_user_info(c['from']['id'])
+                c['from']['metadata'] = user_info['metadata']
         return comments
 
     def get_user_id_from_url(self, url):
