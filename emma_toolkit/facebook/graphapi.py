@@ -31,7 +31,11 @@ class Facebook():
 
     def _get_id_from_username(self, username):
         html = requests.get('https://facebook.com/' + username).text
-        id = re.findall(r'fbpage_id=(\d+)', html)[0]
+        result = re.findall(r'fbpage_id=(\d+)', html)
+        if result:
+            id = result[0]
+        else:
+            id = ''
         return id
 
     def get_object_comments(self, object_id):
