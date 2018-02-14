@@ -242,7 +242,10 @@ class Twitter():
         now = time.time()
         if verbose:
             print('Rate limit {}! We wachten 15 minuten. Tijd: {}'.format(resource, time.strftime('%H:%M:%S')))
-        time.sleep(rate_limit_reset - now)
+        time_to_sleep = rate_limit_reset - now
+        if time_to_sleep < 0:
+            time_to_sleep = 900
+        time.sleep(time_to_sleep)
         main_resource = re.findall(r'/(\w+)/', resource)[0]
         new_rate_limit = self.get_rate_limit(main_resource)[main_resource][resource]
         self.rate_limits[resource] = new_rate_limit
