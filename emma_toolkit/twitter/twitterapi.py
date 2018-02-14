@@ -134,7 +134,10 @@ class Twitter():
             params['include_rts'] = 0
         params['count'] = 200 if count >= 200 else count
         iterations = int(math.ceil(count / 200))
-        start_timestamp = datetime.datetime.timestamp(start_date)
+        if start_date:
+            start_timestamp = datetime.datetime.timestamp(start_date)
+        else:
+            start_timestamp = 0
         all_tweets = []
         date_format = '%a %b %d %H:%M:%S %z %Y'
         for i in range(iterations):
