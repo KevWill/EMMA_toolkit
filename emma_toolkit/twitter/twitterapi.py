@@ -27,6 +27,7 @@ class Twitter():
         url = self.base_url + '/friendships/show.json'
         params = {'source_screen_name': source,
                   'target_screen_name': target}
+        # TODO rate limits inbouwen
         r = self._request(url, params)
         friendship = r.json()
         return {'following': friendship['relationship']['source']['following'],
@@ -43,17 +44,17 @@ class Twitter():
                   'screen_name': user,
                   'count': count}
         r = self._request(url, params)
+        self.rate_limits['/followers/ids']['remaining'] -= 1
         user_ids = r.json()
         follower_ids += user_ids['ids']
-        self.rate_limits['/followers/ids']['remaining'] -= 1
         while 'next_cursor' in user_ids and user_ids['next_cursor'] != 0 and iterate:
             if self.rate_limits['/followers/ids']['remaining'] == 0:
                 self._wait('/followers/ids')
             params['cursor'] = user_ids['next_cursor']
             r = self._request(url, params)
+            self.rate_limits['/followers/ids']['remaining'] -= 1
             user_ids = r.json()
             follower_ids += user_ids['ids']
-            self.rate_limits['/followers/ids']['remaining'] -= 1
         return follower_ids
 
     def get_friends(self, user, cursor = -1, count = 5000, iterate = True, verbose = False):
@@ -67,9 +68,9 @@ class Twitter():
                   'screen_name': user,
                   'count': count}
         r = self._request(url, params)
+        self.rate_limits['/friends/ids']['remaining'] -= 1
         user_ids = r.json()
         friend_ids += user_ids['ids']
-        self.rate_limits['/friends/ids']['remaining'] -= 1
         while 'next_cursor' in user_ids and user_ids['next_cursor'] != 0 and iterate:
             if self.rate_limits['/friends/ids']['remaining'] == 0:
                 self._wait('/friends/ids', verbose)
@@ -101,16 +102,19 @@ class Twitter():
                 else:
                     params = {'screen_name': ','.join(chunk)}
                 r = self._request(url, params, method).json()
+                self.rate_limits['/users/lookup']['remaining'] -= 1
                 user_info += r
         elif isinstance(users, str):
             method = 'GET'
             params = {'screen_name': users}
             r = self._request(url, params, method).json()
+            self.rate_limits['/users/lookup']['remaining'] -= 1
             user_info += r
         elif isinstance(users, int):
             method = 'GET'
             params = {'user_id': users}
             r = self._request(url, params, method).json()
+            self.rate_limits['/users/lookup']['remaining'] -= 1
             user_info += r
         else:
             raise TypeError("Users should be list, string or int, not {}.".format(str(type(users))))
@@ -134,13 +138,17 @@ class Twitter():
             params['include_rts'] = 0
         params['count'] = 200 if count >= 200 else count
         iterations = int(math.ceil(count / 200))
-        start_timestamp = datetime.datetime.timestamp(start_date)
+        if start_date:
+            start_timestamp = datetime.datetime.timestamp(start_date)
+        else:
+            start_timestamp = 0
         all_tweets = []
         date_format = '%a %b %d %H:%M:%S %z %Y'
         for i in range(iterations):
             if self.rate_limits['/statuses/user_timeline']['remaining'] == 0:
                 self._wait('/statuses/user_timeline', verbose)
             r = self._request(url, params).json()
+            self.rate_limits['/statuses/user_timeline']['remaining'] -= 1
             if 'error' in r:
                 error = r['error']
             elif 'errors' in r:
@@ -159,7 +167,6 @@ class Twitter():
             params['max_id'] = r[-1]['id'] - 1
             last_date = r[-1]['created_at']
             last_timestamp = datetime.datetime.timestamp(datetime.datetime.strptime(last_date, date_format))
-            self.rate_limits['/statuses/user_timeline']['remaining'] -= 1
             if last_timestamp < start_timestamp or len(r) < params['count']:
                 break
         tweets = []
@@ -237,11 +244,11 @@ class Twitter():
     def _wait(self, resource, verbose = False):
         rate_limit_reset = self.rate_limits[resource]['reset']
         now = time.time()
-        time_to_sleep = (rate_limit_reset - now) + 5
-        sleep_until = now + datetime.timedelta(seconds=time_to_sleep)
         if verbose:
-            print('Rate limit voor {} (om {}). Wachten tot {}'.format(
-                  resource, time.strftime('%H:%M:%S'), sleep_until.strftime('%H:%M:%S')))
+            print('Rate limit {}! We wachten 15 minuten. Tijd: {}'.format(resource, time.strftime('%H:%M:%S')))
+        time_to_sleep = rate_limit_reset - now
+        if time_to_sleep < 0:
+            time_to_sleep = 900
         time.sleep(time_to_sleep)
         main_resource = re.findall(r'/(\w+)/', resource)[0]
         new_rate_limit = self.get_rate_limit(main_resource)[main_resource][resource]
