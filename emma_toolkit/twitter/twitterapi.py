@@ -244,9 +244,11 @@ class Twitter():
     def _wait(self, resource, verbose = False):
         rate_limit_reset = self.rate_limits[resource]['reset']
         now = time.time()
+        time_to_sleep = rate_limit_reset - now + 5
+        resume = datetime.datetime.now() + datetime.timedelta(seconds=time_to_sleep)
         if verbose:
-            print('Rate limit {}! We wachten 15 minuten. Tijd: {}'.format(resource, time.strftime('%H:%M:%S')))
-        time_to_sleep = rate_limit_reset - now
+            print('Rate limit voor {} om {}. Wachten tot {}'.format(
+                resource, time.strftime('%H:%M:%S'), resume.strftime('%H:%M:%S')))
         if time_to_sleep < 0:
             time_to_sleep = 900
         time.sleep(time_to_sleep)
