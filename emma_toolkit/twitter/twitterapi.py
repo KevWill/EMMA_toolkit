@@ -76,9 +76,9 @@ class Twitter():
                 self._wait('/friends/ids', verbose)
             params['cursor'] = user_ids['next_cursor']
             r = self._request(url, params)
+            self.rate_limits['/friends/ids']['remaining'] -= 1
             user_ids = r.json()
             friend_ids += user_ids['ids']
-            self.rate_limits['/friends/ids']['remaining'] -= 1
         return friend_ids
 
     def get_user_info(self, users, verbose = False):
