@@ -242,6 +242,9 @@ class Twitter():
         return r
 
     def _wait(self, resource, verbose = False):
+        # Rate limit opnieuw checken voor de zekerheid
+        new_rate_limit = self.get_rate_limit(main_resource)[main_resource][resource]
+        self.rate_limits[resource] = new_rate_limit
         rate_limit_reset = self.rate_limits[resource]['reset']
         now = time.time()
         time_to_sleep = rate_limit_reset - now + 5
