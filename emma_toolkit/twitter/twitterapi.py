@@ -89,9 +89,9 @@ class Twitter():
                 self._wait('/friends/ids', verbose)
             params['cursor'] = user_ids['next_cursor']
             r = self._request(url, params)
+            self.rate_limits['/friends/ids']['remaining'] -= 1
             user_ids = r.json()
             friend_ids += user_ids['ids']
-            self.rate_limits['/friends/ids']['remaining'] -= 1
         return friend_ids
 
     def get_user_info(self, users, verbose = False):
@@ -265,14 +265,19 @@ class Twitter():
         return r
 
     def _wait(self, resource, verbose = False):
+        # Rate limit opnieuw checken voor de zekerheid
+        main_resource = re.findall(r'/(\w+)/', resource)[0]
+        new_rate_limit = self.get_rate_limit(main_resource)[main_resource][resource]
+        self.rate_limits[resource] = new_rate_limit
         rate_limit_reset = self.rate_limits[resource]['reset']
         now = time.time()
+        time_to_sleep = rate_limit_reset - now + 5
+        resume = datetime.datetime.now() + datetime.timedelta(seconds=time_to_sleep)
         if verbose:
-            print('Rate limit {}! We wachten 15 minuten. Tijd: {}'.format(resource, time.strftime('%H:%M:%S')))
-        time_to_sleep = rate_limit_reset - now
+            print('Rate limit voor {} om {}. Wachten tot {}'.format(
+                resource, time.strftime('%H:%M:%S'), resume.strftime('%H:%M:%S')))
         if time_to_sleep < 0:
             time_to_sleep = 900
         time.sleep(time_to_sleep)
-        main_resource = re.findall(r'/(\w+)/', resource)[0]
         new_rate_limit = self.get_rate_limit(main_resource)[main_resource][resource]
         self.rate_limits[resource] = new_rate_limit
