@@ -33,7 +33,7 @@ class Twitter():
         return {'following': friendship['relationship']['source']['following'],
                 'followed': friendship['relationship']['source']['followed_by']}
 
-    def get_followers(self, user, cursor = -1, count = 5000, iterate = True, verbose = False):
+    def get_followers(self, user, include_user_ids = None, cursor = -1, count = 5000, iterate = True, verbose = False):
         if '/followers/ids' not in self.rate_limits:
             self.rate_limits['/followers/ids'] = self.get_rate_limit('followers')['followers']['/followers/ids']
         if self.rate_limits['/followers/ids']['remaining'] == 0:
@@ -41,12 +41,21 @@ class Twitter():
         follower_ids = []
         url = self.base_url + '/followers/ids.json'
         params = {'cursor': cursor,
-                  'screen_name': user,
                   'count': count}
+        if type(user) == str:
+            params['screen_name'] = user
+        elif type(user) == int:
+            params['user_id'] = user
+        else:
+            raise TypeError("'user' must be str or int, not {}".format(type(user)))
         r = self._request(url, params)
         self.rate_limits['/followers/ids']['remaining'] -= 1
         user_ids = r.json()
-        follower_ids += user_ids['ids']
+        if include_user_ids:
+            followers_to_include = [id for id in user_ids['ids'] if id in include_user_ids]
+        else:
+            followers_to_include = user_ids['ids']
+        follower_ids += followers_to_include
         while 'next_cursor' in user_ids and user_ids['next_cursor'] != 0 and iterate:
             if self.rate_limits['/followers/ids']['remaining'] == 0:
                 self._wait('/followers/ids')
@@ -54,7 +63,11 @@ class Twitter():
             r = self._request(url, params)
             self.rate_limits['/followers/ids']['remaining'] -= 1
             user_ids = r.json()
-            follower_ids += user_ids['ids']
+            if include_user_ids:
+                followers_to_include = [id for id in user_ids['ids'] if id in include_user_ids]
+            else:
+                followers_to_include = user_ids['ids']
+            follower_ids += followers_to_include
         return follower_ids
 
     def get_friends(self, user, cursor = -1, count = 5000, iterate = True, verbose = False):
@@ -210,6 +223,16 @@ class Twitter():
             if len(r) < count:
                 break
         return user_info
+
+    def get_follow_network(self, user_screen_names, verbose = False):
+        users_info = self.get_user_info(user_screen_names, verbose=verbose)
+        user_ids = [user['id'] for user in users_info]
+        edges = []
+        for user_id in user_ids:
+            follower_ids = self.get_followers(user_id, include_user_ids=user_ids, verbose=verbose)
+            for follower_id in follower_ids:
+                edges.append((follower_id, user_id))
+        return({'nodes': users_info, 'edges': edges})
 
     def get_rate_limit(self, resources):
         url = self.base_url + '/application/rate_limit_status.json'
