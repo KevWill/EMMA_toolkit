@@ -224,8 +224,13 @@ class Twitter():
                 break
         return user_info
 
-    def get_follow_network(self, user_screen_names, verbose = False):
+    def get_follow_network(self, user_screen_names, verbose = False, get_time_estimate = False):
         users_info = self.get_user_info(user_screen_names, verbose=verbose)
+        if get_time_estimate:
+            amount_of_followers = [user['followers_count'] for user in users_info]
+            amount_of_iterations = sum([x / 5000 for x in amount_of_followers])
+            eta = datetime.datetime.now() + datetime.timedelta(minutes=amount_of_iterations)
+            print('This network will take about {:.2f} hours to collect (ETA: {})'.format(amount_of_iterations / 60, eta))
         user_ids = [user['id'] for user in users_info]
         edges = []
         for user_id in user_ids:
