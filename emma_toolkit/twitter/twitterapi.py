@@ -58,7 +58,7 @@ class Twitter():
         follower_ids += followers_to_include
         while 'next_cursor' in user_ids and user_ids['next_cursor'] != 0 and iterate:
             if self.rate_limits['/followers/ids']['remaining'] == 0:
-                self._wait('/followers/ids')
+                self._wait('/followers/ids', verbose)
             params['cursor'] = user_ids['next_cursor']
             r = self._request(url, params)
             self.rate_limits['/followers/ids']['remaining'] -= 1
@@ -228,9 +228,10 @@ class Twitter():
         users_info = self.get_user_info(user_screen_names, verbose=verbose)
         if get_time_estimate:
             amount_of_followers = [user['followers_count'] for user in users_info]
-            amount_of_iterations = sum([x / 5000 for x in amount_of_followers])
+            amount_of_iterations = int(sum([math.ceil(x / 5000) for x in amount_of_followers]))
+            time_to_collect_network = str(datetime.timedelta(minutes=amount_of_iterations))[:-3]
             eta = datetime.datetime.now() + datetime.timedelta(minutes=amount_of_iterations)
-            print('This network will take about {:.2f} hours to collect (ETA: {})'.format(amount_of_iterations / 60, eta))
+            print('Dit netwerk duurt ongeveer {} uur om binnen te halen ({})'.format(time_to_collect_network, eta))
         user_ids = [user['id'] for user in users_info]
         edges = []
         for user_id in user_ids:
@@ -279,10 +280,13 @@ class Twitter():
         time_to_sleep = rate_limit_reset - now + 5
         resume = datetime.datetime.now() + datetime.timedelta(seconds=time_to_sleep)
         if verbose:
-            print('Rate limit voor {} om {}. Wachten tot {}'.format(
-                resource, time.strftime('%H:%M:%S'), resume.strftime('%H:%M:%S')))
+            print('{}: Rate limit voor {}. Wachten tot {}.'.format(
+                time.strftime('%H:%M:%S'), resource, resume.strftime('%H:%M:%S')))
         if time_to_sleep < 0:
             time_to_sleep = 900
         time.sleep(time_to_sleep)
         new_rate_limit = self.get_rate_limit(main_resource)[main_resource][resource]
         self.rate_limits[resource] = new_rate_limit
+        if verbose:
+            print('{}: We gaan verder met data binnenhalen via {}.'.format(
+                time.strftime('%H:%M:%S'), resource))
