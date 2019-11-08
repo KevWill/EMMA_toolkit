@@ -250,7 +250,7 @@ class Twitter():
         """
         tweets['is_retweet'] = tweets[tweet_col].str.startswith('RT @')
         if method == 'mentions':
-            tweets = tweets[~tweets['is_retweet']]
+            tweets = tweets[tweets['is_retweet'] != True]
             exp = re.compile(r'@(\w+)')
         elif method == 'retweets':
             tweets = tweets[tweets['is_retweet']]
