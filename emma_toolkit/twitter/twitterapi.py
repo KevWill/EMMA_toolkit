@@ -250,7 +250,7 @@ class Twitter():
         """
         tweets['is_retweet'] = tweets[tweet_col].str.startswith('RT @')
         if method == 'mentions':
-            tweets = tweets[tweets['is_retweet'] == False]
+            tweets = tweets.loc[tweets['is_retweet'] == False, :]
             exp = re.compile(r'@(\w+)')
         elif method == 'retweets':
             tweets = tweets[tweets['is_retweet']]
@@ -280,6 +280,7 @@ class Twitter():
         :param tweets: Iterable
         :return: Dict: {nodes, edges}
         """
+        tweets = [tweet for tweet in tweets if type(tweet) == str]
         if not include_retweets:
             tweets = [tweet for tweet in tweets if not tweet.startswith('RT @')]
         hashtags_re = re.compile(r'#(\w+)')
