@@ -275,6 +275,24 @@ class Twitter():
         nodes = self.get_user_info(alle_tweeps, verbose=verbose)
         return({'nodes': nodes, 'edges': edges})
 
+    def get_hashtags_network(self, tweets, include_retweets = True):
+        """
+        :param tweets: Iterable
+        :return: Dict: {nodes, edges}
+        """
+        if not include_retweets:
+            tweets = [tweet for tweet in tweets if not tweet.startswith('RT @')]
+        hashtags_re = re.compile(r'#(\w+)')
+        co_hashtags = []
+        for tweet in tweets:
+            hashtags = re.findall(hashtags_re, tweet)
+            result_len = len(hashtags)
+            if result_len > 1:
+                for x in range(0, result_len):
+                    for y in range((x + 1), result_len):
+                        co_hashtags.append((hashtags[x].lower(), hashtags[y].lower()))
+        return co_hashtags
+
     def get_rate_limit(self, resources):
         url = self.base_url + '/application/rate_limit_status.json'
         if isinstance(resources, list):
