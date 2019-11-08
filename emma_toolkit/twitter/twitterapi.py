@@ -240,6 +240,41 @@ class Twitter():
                 edges.append((follower_id, user_id))
         return({'nodes': users_info, 'edges': edges})
 
+    def get_mentions_network(self, tweets, author_col, tweet_col, method = 'mentions', verbose = False):
+        """
+        :param tweets: Pandas Dataframe
+        :param author_col: String
+        :param tweet_col: String
+        :param method: String: ['mentions', 'retweets', 'mentions_and_retweets']
+        :return: Dict: {nodes, edges}
+        """
+        tweets['is_retweet'] = tweets[tweet_col].str.startswith('RT @')
+        if method == 'mentions':
+            tweets = tweets[~tweets['is_retweet']]
+            exp = re.compile(r'@(\w+)')
+        elif method == 'retweets':
+            tweets = tweets[tweets['is_retweet']]
+            exp = re.compile(r'^RT @(\w+)')
+        elif method == 'mentions_and_retweets':
+            exp = re.compile(r'@(\w+)')
+        else:
+            raise ValueError('Parameter "method" should be one of [mentions, retweets, mentions_and_retweets]')
+        tweets['mentions'] = tweets[tweet_col].apply(lambda x: re.findall(exp, x))
+        mentions_per_auteur = tweets.groupby(author_col)['mentions'].sum()
+        edges = []
+        alle_tweeps = []
+        for index, mentions in mentions_per_auteur.iteritems():
+            source = index
+            targets = mentions
+            for target in targets:
+                edges.append((source.lower(), target.lower()))
+                alle_tweeps.append(source.lower())
+                alle_tweeps.append(target.lower())
+
+        alle_tweeps = list(set(alle_tweeps))
+        nodes = self.get_user_info(alle_tweeps, verbose=verbose)
+        return({'nodes': nodes, 'edges': edges})
+
     def get_rate_limit(self, resources):
         url = self.base_url + '/application/rate_limit_status.json'
         if isinstance(resources, list):
