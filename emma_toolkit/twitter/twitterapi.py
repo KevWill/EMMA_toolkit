@@ -51,6 +51,10 @@ class Twitter():
         r = self._request(url, params)
         self.rate_limits['/followers/ids']['remaining'] -= 1
         user_ids = r.json()
+        if 'error' in user_ids:
+            if verbose:
+                print('Fout bij gebruiker {}, geen volgers binnengehaald'.format(str(user)))
+            return []
         if include_user_ids:
             followers_to_include = [id for id in user_ids['ids'] if id in include_user_ids]
         else:
