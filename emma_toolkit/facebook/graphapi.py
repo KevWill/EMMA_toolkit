@@ -6,12 +6,16 @@ class Facebook():
 
     def __init__(self, config):
         """
-            Config is a dict containing: app_id; app_secret
+            Config is a dict containing: app_id; app_secret; page_access_token
         """
         self.app_id = config['app_id']
         self.app_secret = config['app_secret']
-        self.base_url = 'https://graph.facebook.com/v2.5/'
+        self.base_url = 'https://graph.facebook.com/'
         self.access_token = self._get_access_token()
+        if 'page_access_token' in config:
+            self.page_access_token = config['page_access_token']
+        else:
+            self.page_access_token = ''
 
     def _get_access_token(self):
         url = 'https://graph.facebook.com/v2.5/oauth/access_token?client_id={}&' \
@@ -19,8 +23,14 @@ class Facebook():
         access_token = requests.get(url).json()['access_token']
         return access_token
 
-    def _request(self, url, params = {}, method='GET'):
-        params['access_token'] = self.access_token
+    def _request(self, url, params = {}, method='GET', access_token='user'):
+        if access_token == 'user':
+            params['access_token'] = self.access_token
+        elif access_token == 'page':
+            if not self.page_access_token:
+                print('Geen page access token!')
+                raise Exception
+            params['access_token'] = self.page_access_token
         if method == 'GET':
             r = requests.get(url=url, params=params)
         elif method == 'POST':
@@ -37,6 +47,9 @@ class Facebook():
         else:
             id = ''
         return id
+
+    def set_page_access_token(self, page_access_token):
+        self.page_access_token = page_access_token
 
     def get_object_comments(self, object_id, user_info = False):
         url = self.base_url + object_id + '/comments'
@@ -105,7 +118,38 @@ class Facebook():
             raise IndexError('URL nog niet in systeem: {}'.format(url))
         return post_id
 
+    # TODO foutmelding: 'Unsupported get request. Object with ID 317412078342460 does not exist' --> Ondervangen
+
+    def get_page_access_token(self, page_id):
+        url = "https://graph.facebook.com/" + str(page_id)
+        params = {'fields': 'access_token'}
+        r = self._request(url, params)
+        return r
+
+    def get_long_lived_page_access_token(self, page_access_token):
+        url = 'https://graph.facebook.com/oauth/access_token?client_id={}&client_secret={}&grant_type=' \
+              'fb_exchange_token&fb_exchange_token={}'.format(self.app_id, self.app_secret, page_access_token)
+        r = self._request(url)
+        return r
+
+    def get_page_feed(self, page_id):
+        url = self.base_url + str(page_id) + '/feed'
+        r = self._request(url, access_token='page')
+        return r
+
+    def get_object_insights(self, object_id, metrics):
+        url = self.base_url + str(object_id) + '/insights'
+        params = {'metric': ','.join(metrics), 'period': 'days_28'}
+        r = self._request(url, access_token='page', params=params)
+        return r
+
     def get_user_info(self, user_id):
         url = self.base_url + user_id
         r = self._request(url, params = {'metadata': 1}).json()
+        return r
+
+    def search(self, query, type):
+        url = self.base_url + 'search'
+        params = {'q': query, 'type': type}
+        r = self._request(url, params).json()
         return r
