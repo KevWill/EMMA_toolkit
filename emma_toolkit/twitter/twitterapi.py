@@ -4,10 +4,12 @@ import math
 import time
 import re
 import datetime
+import io
+import logging
 
 class Twitter():
 
-    def __init__(self, config):
+    def __init__(self, config, log_file = ''):
         """
         Config is a dict containing: consumer_key; consumer_secret;
                                      access_token; access_secret
@@ -19,9 +21,14 @@ class Twitter():
                        )
         self.base_url = 'https://api.twitter.com/1.1'
         self.rate_limits = {}
+        if log_file:
+            self.logger = self._setup_log(log_file)
+            self.logging_on = True
+        else:
+            self.logging_on = False
 
-    def set_auth(self, consumer_key, consumer_secret, access_token, acces_secret):
-        self.oauth = OAuth1(consumer_key, consumer_secret, access_token, acces_secret)
+    def set_auth(self, consumer_key, consumer_secret, access_token, access_secret):
+        self.oauth = OAuth1(consumer_key, consumer_secret, access_token, access_secret)
 
     def show_friendship(self, source, target):
         url = self.base_url + '/friendships/show.json'
@@ -50,18 +57,25 @@ class Twitter():
             raise TypeError("'user' must be str or int, not {}".format(type(user)))
         r = self._request(url, params)
         # self.rate_limits['/followers/ids']['remaining'] -= 1
+        if verbose:
+            print('Volgers binnenhalen van gebruiker {} ...'.format(str(user)))
         user_ids = r.json()
         while 'errors' in user_ids:
             if user_ids['errors'][0]['code'] == 88:
                 self._wait('/followers/ids', verbose)
                 user_ids = r.json()
-            if verbose:
-                print('Fout bij gebruiker {}, geen volgers binnengehaald'.format(str(user)))
+            if self.logging_on:
+                self.logger.error('Fout bij gebruiker {}, geen volgers binnengehaald'.format(str(user)))
                 return []
-        if include_user_ids:
-            followers_to_include = [id for id in user_ids['ids'] if id in include_user_ids]
-        else:
-            followers_to_include = user_ids['ids']
+        try:
+            if include_user_ids:
+                followers_to_include = [id for id in user_ids['ids'] if id in include_user_ids]
+            else:
+                followers_to_include = user_ids['ids']
+        except KeyError:
+            if self.logging_on:
+                self.logger.error('Fout bij gebruiker {} ("KeyError"), geen volgers binnengehaald'.format(str(user)))
+            return []
         follower_ids += followers_to_include
         while 'next_cursor' in user_ids and user_ids['next_cursor'] != 0 and iterate:
             # if self.rate_limits['/followers/ids']['remaining'] == 0:
@@ -74,8 +88,8 @@ class Twitter():
                 if user_ids['errors'][0]['code'] == 88:
                     self._wait('/followers/ids', verbose)
                     user_ids = r.json()
-                if verbose:
-                    print('Fout bij gebruiker {}, geen volgers binnengehaald'.format(str(user)))
+                if self.logging_on:
+                    self.logger.error('Fout bij gebruiker {}, geen volgers binnengehaald'.format(str(user)))
                     return []
             if include_user_ids:
                 followers_to_include = [id for id in user_ids['ids'] if id in include_user_ids]
@@ -337,6 +351,20 @@ class Twitter():
         else:
             raise TypeError("'Method' should be either POST or GET.")
         return r
+
+    def _setup_log(self, log_file):
+        logger = logging.getLogger(__name__)
+        c_handler = logging.StreamHandler()
+        f_handler = logging.FileHandler(log_file)
+        c_handler.setLevel(logging.WARNING)
+        f_handler.setLevel(logging.ERROR)
+        c_format = logging.Formatter('%(name)s - %(levelname)s - %(message)s')
+        f_format = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        c_handler.setFormatter(c_format)
+        f_handler.setFormatter(f_format)
+        logger.addHandler(c_handler)
+        logger.addHandler(f_handler)
+        return logger
 
     def _wait(self, resource, verbose = False):
         # Rate limit opnieuw checken voor de zekerheid
