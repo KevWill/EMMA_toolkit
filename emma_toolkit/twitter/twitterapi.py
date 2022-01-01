@@ -4,15 +4,18 @@ import math
 import time
 import re
 import datetime
-import io
 import logging
+import unicodecsv as csv
+import os
 
 class Twitter():
 
-    def __init__(self, config, log_file = ''):
+    def __init__(self, config, log_file='', temp_file=''):
         """
-        Config is a dict containing: consumer_key; consumer_secret;
+        config is a dict containing: consumer_key; consumer_secret;
                                      access_token; access_secret
+        log_file is the name for a txt-file
+        temp_file is the name for a csv-file
         """
         self.oauth = OAuth1(config['consumer_key'],
                        config['consumer_secret'],
@@ -22,10 +25,22 @@ class Twitter():
         self.base_url = 'https://api.twitter.com/1.1'
         self.rate_limits = {}
         if log_file:
+            if not log_file.endswith('.txt'):
+                raise ValueError("log_file name should end in .txt")
             self.logger = self._setup_log(log_file)
             self.logging_on = True
         else:
             self.logging_on = False
+        if temp_file:
+            if not temp_file.endswith('.csv'):
+                raise ValueError("temp_file name should end in .csv")
+            self.temp_file = temp_file
+            with open(temp_file, 'wb') as f:
+                writer = csv.writer(f, encoding='utf-8', delimiter=',')
+                writer.writerow(['source', 'target'])
+                f.close()
+        else:
+            self.temp_file = None
 
     def set_auth(self, consumer_key, consumer_secret, access_token, access_secret):
         self.oauth = OAuth1(consumer_key, consumer_secret, access_token, access_secret)
@@ -63,8 +78,9 @@ class Twitter():
         while 'errors' in user_ids:
             if user_ids['errors'][0]['code'] == 88:
                 self._wait('/followers/ids', verbose)
+                r = self._request(url, params)
                 user_ids = r.json()
-            if self.logging_on:
+            elif self.logging_on:
                 self.logger.error('Fout bij gebruiker {}, geen volgers binnengehaald'.format(str(user)))
                 return []
         try:
@@ -161,7 +177,7 @@ class Twitter():
             raise TypeError("Users should be list, string or int, not {}.".format(str(type(users))))
         return user_info
 
-    def get_recent_tweets(self, user, count = 3200, start_date = None, include_rts = True, verbose=False):
+    def get_recent_tweets(self, user, count=3200, start_date=None, include_rts=True, verbose=False):
         if '/statuses/user_timeline' not in self.rate_limits:
             self.rate_limits['/statuses/user_timeline'] = self.get_rate_limit('statuses')['statuses']['/statuses/user_timeline']
         if self.rate_limits['/statuses/user_timeline']['remaining'] == 0:
@@ -252,7 +268,7 @@ class Twitter():
                 break
         return user_info
 
-    def get_follow_network(self, user_screen_names, verbose = False, get_time_estimate = False):
+    def get_follow_network(self, user_screen_names, verbose=False, get_time_estimate=False):
         users_info = self.get_user_info(user_screen_names, verbose=verbose)
         if get_time_estimate:
             amount_of_followers = [user['followers_count'] for user in users_info]
@@ -266,6 +282,11 @@ class Twitter():
             follower_ids = self.get_followers(user_id, include_user_ids=user_ids, verbose=verbose)
             for follower_id in follower_ids:
                 edges.append((follower_id, user_id))
+                if self.temp_file:
+                    with open(self.temp_file, 'ab') as f:
+                        writer = csv.writer(f, encoding='utf-8', delimiter=',')
+                        writer.writerow([follower_id, user_id])
+                        f.close()
         return({'nodes': users_info, 'edges': edges})
 
     def get_mentions_network(self, tweets, author_col, tweet_col, method = 'mentions', verbose = False):
@@ -344,12 +365,18 @@ class Twitter():
             yield l[i:i+n]
 
     def _request(self, url, params, method='GET'):
-        if method == 'GET':
-            r = requests.get(url=url, params=params, auth=self.oauth)
-        elif method == 'POST':
-            r = requests.post(url=url, params=params, auth=self.oauth)
-        else:
-            raise TypeError("'Method' should be either POST or GET.")
+        try:
+            if method == 'GET':
+                r = requests.get(url=url, params=params, auth=self.oauth)
+            elif method == 'POST':
+                r = requests.post(url=url, params=params, auth=self.oauth)
+            else:
+                raise TypeError("'Method' should be either POST or GET.")
+        except requests.exceptions.ConnectionError:
+            if self.logging_on:
+                logging.error('Connection error, nog een poging over 15 min.')
+                time.sleep(15)
+            self._request(url, params, method)
         return r
 
     def _setup_log(self, log_file):
