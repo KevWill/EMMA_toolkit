@@ -55,11 +55,9 @@ class Twitter():
         return {'following': friendship['relationship']['source']['following'],
                 'followed': friendship['relationship']['source']['followed_by']}
 
-    def get_followers(self, user, include_user_ids = None, cursor = -1, count = 5000, iterate = True, verbose = False):
+    def get_followers(self, user, include_user_ids=None, cursor=-1, count=5000, iterate=True, verbose=False):
         if '/followers/ids' not in self.rate_limits:
             self.rate_limits['/followers/ids'] = self.get_rate_limit('followers')['followers']['/followers/ids']
-        # if self.rate_limits['/followers/ids']['remaining'] == 0:
-        #     self._wait('/followers/ids', verbose)
         follower_ids = []
         url = self.base_url + '/followers/ids.json'
         params = {'cursor': cursor,
@@ -71,7 +69,6 @@ class Twitter():
         else:
             raise TypeError("'user' must be str or int, not {}".format(type(user)))
         r = self._request(url, params)
-        # self.rate_limits['/followers/ids']['remaining'] -= 1
         if verbose:
             print('Volgers binnenhalen van gebruiker {} ...'.format(str(user)))
         user_ids = r.json()
@@ -82,6 +79,8 @@ class Twitter():
                 user_ids = r.json()
             elif self.logging_on:
                 self.logger.error('Fout bij gebruiker {}, geen volgers binnengehaald'.format(str(user)))
+                return []
+            else:
                 return []
         try:
             if include_user_ids:
@@ -94,18 +93,18 @@ class Twitter():
             return []
         follower_ids += followers_to_include
         while 'next_cursor' in user_ids and user_ids['next_cursor'] != 0 and iterate:
-            # if self.rate_limits['/followers/ids']['remaining'] == 0:
-            #     self._wait('/followers/ids', verbose)
             params['cursor'] = user_ids['next_cursor']
             r = self._request(url, params)
-            # self.rate_limits['/followers/ids']['remaining'] -= 1
             user_ids = r.json()
             while 'errors' in user_ids:
                 if user_ids['errors'][0]['code'] == 88:
                     self._wait('/followers/ids', verbose)
+                    r = self._request(url, params)
                     user_ids = r.json()
-                if self.logging_on:
+                elif self.logging_on:
                     self.logger.error('Fout bij gebruiker {}, geen volgers binnengehaald'.format(str(user)))
+                    return []
+                else:
                     return []
             if include_user_ids:
                 followers_to_include = [id for id in user_ids['ids'] if id in include_user_ids]
@@ -114,7 +113,7 @@ class Twitter():
             follower_ids += followers_to_include
         return follower_ids
 
-    def get_friends(self, user, cursor = -1, count = 5000, iterate = True, verbose = False):
+    def get_friends(self, user, cursor=-1, count=5000, iterate=True, verbose=False):
         if '/friends/ids' not in self.rate_limits:
             self.rate_limits['/friends/ids'] = self.get_rate_limit('friends')['friends']['/friends/ids']
         if self.rate_limits['/friends/ids']['remaining'] == 0:
